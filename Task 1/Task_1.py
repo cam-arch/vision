@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import natsort
 
 images = []
 detected_edges_images = []
@@ -47,32 +48,41 @@ def findTwoLines(lines):
     return twoLines
 
 
-for image in sorted(os.listdir('./angle')):
+for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
 
     imageO = cv2.imread('./angle/' + image, cv2.IMREAD_GRAYSCALE)
 
     (thresh, blackAndWhiteImage) = cv2.threshold(imageO, 127, 255, cv2.THRESH_BINARY)
 
-    cdst = cv2.cvtColor(imageO, cv2.COLOR_GRAY2BGR)
+    imageUnderlay = cv2.cvtColor(imageO, cv2.COLOR_GRAY2BGR)
     
     lines = cv2.HoughLines(blackAndWhiteImage, 1, np.pi / 155, 120, None, 0, 0)
     
     if lines is not None:
+
         twoLines = findTwoLines(lines)
-        for idx in range(2):
-            rho = twoLines[idx][0]
-            theta = twoLines[idx][1]
+
+        for line in twoLines:
+
+            rho = line[0]
+            theta = line[1]
+
             a = math.cos(theta)
             b = math.sin(theta)
+
             x0 = a * rho
             y0 = b * rho
+
             pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
             pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
-            cv2.line(cdst, pt1, pt2, (0,0,255), 3, cv2.LINE_AA)
+
+            cv2.line(imageUnderlay, pt1, pt2, (0,0,255), 1, cv2.LINE_AA)
+
+        print (abs((twoLines[0][1] - twoLines[1][1] * 60)), abs((twoLines[1][1] - twoLines[0][1] * 60))
 
     print("#######")
 
-    cv2.imshow('Image with Edge Detection', cdst)
+    cv2.imshow('Image with Edge Detection', imageUnderlay)
 
     cv2.waitKey(0)
     
