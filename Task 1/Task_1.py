@@ -78,7 +78,7 @@ for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
 
             cv2.line(imageUnderlay, pt1, pt2, (0,0,255), 1, cv2.LINE_AA)
 
-        print (abs((twoLines[0][1] - twoLines[1][1] * 60)), abs((twoLines[1][1] - twoLines[0][1] * 60))
+        print (abs(twoLines[0][1] - twoLines[1][1]) * 60), abs((twoLines[1][1] - twoLines[0][1]) * 60)
 
     print("#######")
 
