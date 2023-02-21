@@ -30,8 +30,10 @@ for image in sorted(os.listdir('./angle')):
 
     detected_edges_images.append(out)
 
-# display results
-skimage.viewer.CollectionViewer(images, update_on='move')
+    skimage.viewer.ImageViewer(out)
 
-skimage.viewer.CollectionViewer(detected_edges_images, update_on='move')
+# display results
+# skimage.viewer.CollectionViewer(images, update_on='move')
+
+# skimage.viewer.CollectionViewer(detected_edges_images, update_on='move')
 
