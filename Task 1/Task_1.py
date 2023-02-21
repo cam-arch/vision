@@ -53,22 +53,6 @@ for image in sorted(os.listdir('./angle')):
 
     (thresh, blackAndWhiteImage) = cv2.threshold(imageO, 127, 255, cv2.THRESH_BINARY)
 
-    # cv2.imshow('Image with Edge Detection', blackAndWhiteImage)
-
-
-    # t2, thresh = cv2.threshold(imageO, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # t1 = 0.5 * t2
-
-    # images.append(imageO)
-
-    # image = cv2.Canny(imageO, t1, t2, None, 7)
-
-    # # image = cv2.GaussianBlur(image, (5, 5), 2)
-
-    # detected_edges_images.append(image)
-
-    # # Copy edges to the images that will display the results in BGR
     cdst = cv2.cvtColor(imageO, cv2.COLOR_GRAY2BGR)
     
     lines = cv2.HoughLines(blackAndWhiteImage, 1, np.pi / 155, 120, None, 0, 0)
