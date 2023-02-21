@@ -30,7 +30,7 @@ for image in sorted(os.listdir('./angle')):
     # detected_edges_images.append(image)
 
     # # Copy edges to the images that will display the results in BGR
-    cdst = cv2.cvtColor(blackAndWhiteImage, cv2.COLOR_GRAY2BGR)
+    cdst = cv2.cvtColor(imageO, cv2.COLOR_GRAY2BGR)
     
     lines = cv2.HoughLines(blackAndWhiteImage, 1.6, np.pi / 180, 150, None, 0, 0)
     
