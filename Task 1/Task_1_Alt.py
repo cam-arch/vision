@@ -1,14 +1,18 @@
-import math
 import os
 
 import cv2 as cv
 import natsort
 import numpy as np
 
-from utils import return_correct_angles_in_degrees
+from utils import return_correct_angles_in_degrees, show_hough_lines
 
 
 def find_two_lines(lines):
+    """
+    Groups any hough lines found into two groups. Averages them to get a best fit of two lines.
+    :param lines: the hough lines output by opencv on an image
+    :return: the two lines to find the angle between
+    """
     maxDiff = 0
     maxDiffPos = 0
     cumRho1 = 0
@@ -40,37 +44,36 @@ def find_two_lines(lines):
     return [[cumRho1, cumTheta1], [cumRho2, cumTheta2]]
 
 
-for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
-    image_ = cv.imread('./angle/' + image, cv.IMREAD_GRAYSCALE)
-    (thresh, blackAndWhiteImage) = cv.threshold(image_, 127, 255, cv.THRESH_BINARY)
-    imageUnderlay = cv.cvtColor(image_, cv.COLOR_GRAY2BGR)
-    lines = cv.HoughLines(blackAndWhiteImage, 1.1, np.pi / 150, 120, None, 0, 0)
+def run_task_1(path_to_images):
+    """
+    Performs task 1 in the spec (returns the angle between two lines on an image). This version isn't 100% accurate.
+    :param path_to_images: where the images are stored
+    :return: None
+    """
+    for image in natsort.natsorted(os.listdir(path_to_images), reverse=False):
+        image_ = cv.imread('./angle/' + image, cv.IMREAD_GRAYSCALE)
+        (thresh, blackAndWhiteImage) = cv.threshold(image_, 127, 255, cv.THRESH_BINARY)
+        imageUnderlay = cv.cvtColor(image_, cv.COLOR_GRAY2BGR)
+        lines = cv.HoughLines(blackAndWhiteImage, 1.1, np.pi / 150, 120, None, 0, 0)
 
-    if lines is not None:
-        twoLines = find_two_lines(lines)
+        if lines is not None:
+            lines = find_two_lines(lines)
 
-        for line in twoLines:
-            rho = line[0]
-            theta = line[1]
+            show_hough_lines(lines, imageUnderlay)
 
-            a = math.cos(theta)
-            b = math.sin(theta)
+            print(image)
+            cv.imshow('Image with Line Detection', imageUnderlay)
+            cv.waitKey(0)
 
-            x0 = a * rho
-            y0 = b * rho
+            angle1, angle2 = return_correct_angles_in_degrees(lines)
+            print("Line 1: " + str(angle1))
+            print("Line 2: " + str(angle2))
+            print("Angle between them: " + str(round(abs(angle1 - angle2))))
 
-            pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
-            pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
+        cv.destroyAllWindows()
 
-            cv.line(imageUnderlay, pt1, pt2, (0, 255, 0), 1, cv.LINE_AA)
 
-        print(image)
-        cv.imshow('Image with Line Detection', imageUnderlay)
-        cv.waitKey(0)
-
-        angle1, angle2 = return_correct_angles_in_degrees(twoLines)
-        print("Line 1: " + str(angle1))
-        print("Line 2: " + str(angle2))
-        print("Angle between them: " + str(round(abs(angle1 - angle2))))
-
-    cv.destroyAllWindows()
+if __name__ == '__main__':
+    # UPDATE PATH AS REQUIRED
+    path = "./angle"
+    run_task_1(path)
