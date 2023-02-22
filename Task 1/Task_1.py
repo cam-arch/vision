@@ -1,69 +1,37 @@
-import cv2
-import os
-import matplotlib.pyplot as plt
-import numpy as np
 import math
+import os
+
+import cv2 as cv
 import natsort
+import numpy as np
 
-images = []
-detected_edges_images = []
-idx = 1
+from utils import return_correct_angles_in_degrees
 
-def findTwoLines(lines):
 
-    maxDiff = 0
-    maxDiffPos = 0
-    cumRho1 = 0
-    cumRho2 = 0
-    cumTheta1 = 0
-    cumTheta2 = 0
+def remove_parallel_lines(hough_lines):
+    if hough_lines is None:
+        return None
 
-    sortedLines = sorted(lines, key=lambda x: x[0][0])
-
-    for idx in range(len(sortedLines) - 1):
-
-        if (sortedLines[idx + 1][0][0] - sortedLines[idx][0][0]) > maxDiff:
-
-            maxDiffPos = idx + 1
-            maxDiff = sortedLines[idx + 1][0][0] - sortedLines[idx][0][0]
-
-    for jdx in range (0, maxDiffPos):
-
-        cumRho1 += sortedLines[jdx][0][0]
-        cumTheta1 += sortedLines[jdx][0][1]
-
-    cumRho1 /= maxDiffPos
-    cumTheta1 /= maxDiffPos
-
-    for kdx in range (maxDiffPos, len(sortedLines)):
-        
-        cumRho2 += sortedLines[kdx][0][0]
-        cumTheta2 += sortedLines[kdx][0][1]
-
-    cumRho2 /= len(sortedLines) - maxDiffPos
-    cumTheta2 /= len(sortedLines) - maxDiffPos
-
-    twoLines = [[cumRho1, cumTheta1], [cumRho2, cumTheta2]]
-    
-    return twoLines
+    hough_lines = hough_lines.reshape(-1, hough_lines.shape[-1])
+    unique_thetas, indices = np.unique(hough_lines[:, 1], return_index=True)
+    return hough_lines[indices]
 
 
 for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
+    image_ = cv.imread('./angle/' + image, cv.IMREAD_GRAYSCALE)
+    edges = cv.Canny(image_, 50, 200, None, 3)
+    edges_bgr = cv.cvtColor(edges, cv.COLOR_GRAY2BGR)
 
-    imageO = cv2.imread('./angle/' + image, cv2.IMREAD_GRAYSCALE)
+    potential_thresholds = np.linspace(80, 200, 100, dtype=int)
+    lines = None
+    for threshold in potential_thresholds:
+        lines = cv.HoughLines(edges, 1, np.pi / 180, threshold, None, 0, 0)
+        lines = remove_parallel_lines(lines)
+        if lines is not None and len(lines) == 2:
+            break
 
-    (thresh, blackAndWhiteImage) = cv2.threshold(imageO, 127, 255, cv2.THRESH_BINARY)
-
-    imageUnderlay = cv2.cvtColor(imageO, cv2.COLOR_GRAY2BGR)
-    
-    lines = cv2.HoughLines(blackAndWhiteImage, 1, np.pi / 155, 120, None, 0, 0)
-    
-    if lines is not None:
-
-        twoLines = findTwoLines(lines)
-
-        for line in twoLines:
-
+    if lines is not None and len(lines) == 2:
+        for line in lines:
             rho = line[0]
             theta = line[1]
 
@@ -73,29 +41,18 @@ for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
             x0 = a * rho
             y0 = b * rho
 
-            pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
-            pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+            pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
+            pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
 
-            cv2.line(imageUnderlay, pt1, pt2, (0,0,255), 1, cv2.LINE_AA)
+            cv.line(edges_bgr, pt1, pt2, (0, 0, 255), 1, cv.LINE_AA)
 
-        print (abs((twoLines[0][1] - twoLines[1][1] * 60)), abs((twoLines[1][1] - twoLines[0][1] * 60))
+        print(image)
+        cv.imshow('Image with line detection', edges_bgr)
+        cv.waitKey(0)
 
-    print("#######")
+        angle1, angle2 = return_correct_angles_in_degrees(lines)
+        print("Line 1: " + str(angle1))
+        print("Line 2: " + str(angle2))
+        print("Angle between them: " + str(round(abs(angle1 - angle2))))
 
-    cv2.imshow('Image with Edge Detection', imageUnderlay)
-
-    cv2.waitKey(0)
-    
-    cv2.destroyAllWindows()
-
-    idx += 1
-
-
-    
-
-
-
-
-
-
-
+    cv.destroyAllWindows()
