@@ -56,7 +56,7 @@ for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
 
     imageUnderlay = cv2.cvtColor(imageO, cv2.COLOR_GRAY2BGR)
     
-    lines = cv2.HoughLines(blackAndWhiteImage, 1, np.pi / 155, 120, None, 0, 0)
+    lines = cv2.HoughLines(blackAndWhiteImage, 1.1, np.pi / 150, 120, None, 0, 0)
     
     if lines is not None:
 
@@ -78,7 +78,7 @@ for image in natsort.natsorted(os.listdir('./angle'), reverse=False):
 
             cv2.line(imageUnderlay, pt1, pt2, (0,0,255), 1, cv2.LINE_AA)
 
-        print (abs(twoLines[0][1] - twoLines[1][1]) * 60), abs((twoLines[1][1] - twoLines[0][1]) * 60)
+        print (round(np.degrees(abs(twoLines[0][1] - twoLines[1][1]))))
 
     print("#######")
 
