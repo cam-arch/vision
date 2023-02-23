@@ -1,44 +1,76 @@
+import os
+
 import cv2 as cv
+import natsort
+import numpy as np
 
 
-# 32 x 32 should be min size
-def image_pyramid(file):
-    print("""
-    Zoom In-Out demo
-    ------------------
-    * [i] -> Zoom [i]n
-    * [o] -> Zoom [o]ut
-    * [ESC] -> Close program
-    """)
-
-    # Load the image
+# TODO: Make work for none 64 x 64
+def image_pyramid(file, file_name):
     src = cv.imread(cv.samples.findFile(file))
-    # Check if image is loaded fine
-    if src is None:
-        print('Error opening image!')
-        print('Usage: pyramids.py [image_name -- default ../data/chicky_512.png] \n')
-        return -1
 
-    while 1:
-        rows, cols, _channels = map(int, src.shape)
+    rows, cols, _channels = map(int, src.shape)
+    rows //= 2
+    cols //= 2
 
-        cv.imshow('Pyramids Demo', src)
+    while rows != 32 and cols != 32:
+        src = cv.pyrDown(src, dstsize=(rows, cols))
+        # cv.imshow('Pyramids Demo', src)
+        rows = rows // 2
+        cols = cols // 2
 
-        k = cv.waitKey(0)
-        if k == 27:
-            break
+        # cv.waitKey(0)
 
-        elif chr(k) == 'i':
-            src = cv.pyrUp(src, dstsize=(2 * cols, 2 * rows))
-            print('** Zoom In: Image x 2')
+    (threshold, black_and_white_image) = cv.threshold(src, 127, 255, cv.THRESH_BINARY)
 
-        elif chr(k) == 'o':
-            src = cv.pyrDown(src, dstsize=(cols // 2, rows // 2))
-            print('** Zoom Out: Image / 2')
+    return black_and_white_image, file_name
+
+
+def run_task_2(training_path, test_path):
+    scaled_templates = []
+    # TODO: Cache templates
+    #  Cache templates for sizes not 64 x 64
+    for image in natsort.natsorted(os.listdir(training_path), reverse=False):
+        scaled_template = image_pyramid(training_path + "/" + image, image)
+        scaled_templates.append(scaled_template)
+
+    templates_found = []
+    for image in natsort.natsorted(os.listdir(test_path), reverse=False):
+        img_rgb = cv.imread(test_path + "/" + image)
+        (threshold, black_and_white_image) = cv.threshold(img_rgb, 127, 255, cv.THRESH_BINARY)
+
+        templates_position = []
+        for scaled_template, name in scaled_templates:
+            # w, h = scaled_template.shape[::-1]
+            # TODO: Make not 64 x 64
+            w, h = 64, 64
+            res = cv.matchTemplate(black_and_white_image, scaled_template, cv.TM_CCOEFF_NORMED)
+
+            # Making this 0.95 did not work for me
+            threshold = 0.9
+            loc = np.where(res >= threshold)
+            if len(loc[0]) != 0:
+                # TODO: This can sometimes be 1 pixel off
+                #  Also template has to be 64 x 64
+                y_min = round(np.average(loc[0]))
+                x_min = round(np.average(loc[1]))
+                y_max = y_min + 64
+                x_max = x_min + 64
+                templates_position.append((name, (x_min, y_min), (x_max, y_max)))
+            for pt in zip(*loc[::-1]):
+                cv.rectangle(img_rgb, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
+
+        templates_found.append(templates_position)
+        # cv.imshow('bbox', img_rgb)
+        # cv.waitKey(0)
+
+    for images_templates in templates_found:
+        print(images_templates)
 
     cv.destroyAllWindows()
-    return 0
 
 
 if __name__ == "__main__":
-    image_pyramid("./Task2Dataset/Training/png/001-lighthouse.png")
+    training_path = "./Task2Dataset/Training/png"
+    test_path = "./Task2Dataset/TestWithoutRotations/images"
+    run_task_2(training_path, test_path)

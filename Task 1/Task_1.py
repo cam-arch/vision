@@ -28,7 +28,7 @@ def run_task_1(path_to_images):
     :return: None
     """
     for image in natsort.natsorted(os.listdir(path_to_images), reverse=False):
-        image_ = cv.imread('./angle/' + image, cv.IMREAD_GRAYSCALE)
+        image_ = cv.imread(path_to_images + image, cv.IMREAD_GRAYSCALE)
         edges = cv.Canny(image_, 50, 200, None, 3)
         edges_bgr = cv.cvtColor(edges, cv.COLOR_GRAY2BGR)
 
