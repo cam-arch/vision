@@ -4,9 +4,7 @@ import cv2 as cv
 import natsort
 import numpy as np
 
-
-# TODO: Make work for none 64 x 64
-def image_pyramid(file, file_name):
+def image_pyramid(file, file_name, height, width):
     src = cv.imread(cv.samples.findFile(file))
 
     rows, cols, _channels = map(int, src.shape)
@@ -15,6 +13,10 @@ def image_pyramid(file, file_name):
 
     while rows != 32 and cols != 32:
         src = cv.pyrDown(src, dstsize=(rows, cols))
+
+        if (rows == height and cols == width):
+            break
+        
         # cv.imshow('Pyramids Demo', src)
         rows = rows // 2
         cols = cols // 2
@@ -31,7 +33,7 @@ def run_task_2(training_path, test_path):
     # TODO: Cache templates
     #  Cache templates for sizes not 64 x 64
     for image in natsort.natsorted(os.listdir(training_path), reverse=False):
-        scaled_template = image_pyramid(training_path + "/" + image, image)
+        scaled_template = image_pyramid(training_path + "/" + image, image, 64, 64)
         scaled_templates.append(scaled_template)
 
     templates_found = []
@@ -73,4 +75,8 @@ def run_task_2(training_path, test_path):
 if __name__ == "__main__":
     training_path = "./Task2Dataset/Training/png"
     test_path = "./Task2Dataset/TestWithoutRotations/images"
-    run_task_2(training_path, test_path)
+    try:    
+        run_task_2(training_path, test_path)
+    except:
+        print("Laurence's laptop")
+        run_task_2(training_path.replace(".", "Task 2"), test_path.replace(".", "Task 2"))
