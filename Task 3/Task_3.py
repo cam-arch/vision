@@ -3,7 +3,7 @@ import pickle
 import re
 import timeit
 
-import cv2 as cv
+import cv2
 import natsort
 import numpy as np
 
@@ -46,15 +46,23 @@ def accuracy(test_annotations_path, templates_found):
 
 def run_task_3(training_path, test_path, test_annotations_path, cache_path, use_cache):
 
+    for image in natsort.natsorted(os.listdir(test_path), reverse=False):
+        img_rgb = cv2.imread(test_path + "/" + image)
+        gray= cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+        sift = cv2.SIFT_create()
+        kp = sift.detect(gray,None)
+        img=cv2.drawKeypoints(gray,kp,img)
+        
 
     
 
 
 if __name__ == "__main__":
-    training_path = "./Task2Dataset/Training/png"
-    test_path = "./Task2Dataset/TestWithoutRotations/images"
-    cache_path = training_path.replace("png", "cache")  # "./Task2Dataset/Training/cache"
-    test_annotations_path = "./Task2Dataset/TestWithoutRotations/annotations"
+    training_path = "./Task3AddtinalDataet/Training/png"
+    test_path = "./Task3AddtinalDataet/TestWithoutRotations/images"
+    cache_path = training_path.replace("png", "cache")  # "./Task3AddtinalDataet/Training/cache"
+    test_annotations_path = "./Task3AddtinalDataet/TestWithoutRotations/annotations"
     use_cache = True
 
     start = timeit.default_timer()
