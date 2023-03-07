@@ -1,7 +1,7 @@
-import json
 import os
-import timeit
+import pickle
 import re
+import timeit
 
 import cv2 as cv
 import natsort
@@ -42,8 +42,8 @@ def get_templates(training_path, cache_path, use_cache):
         return read_cache_templates(cache_path)
 
     # Create files for each template
-    scales = [64]  # The different scales we want to use
-    rotations = []  # The rotations of the templates
+    scales = [32, 64, 128, 256]  # The different scales we want to use
+    rotations = [45, 90, 135, 180, 225, 270, 315]  # The rotations of the templates
     templates = {}
     for image in natsort.natsorted(os.listdir(training_path), reverse=False):
         for scale in scales:
@@ -55,14 +55,13 @@ def get_templates(training_path, cache_path, use_cache):
                 rotation_angle = cv.getRotationMatrix2D((w / 2, h / 2), rotation, 1)  # Create rotation matrix
                 new_template = cv.warpAffine(new_template, rotation_angle, (w, h))  # Rotate image
                 templates[name + "_" + str(scale) + "_" + str(
-                    rotation)] = new_template  # Add image to dictionary. tolist() needed for json serializing
+                    rotation)] = new_template
 
     if use_cache:
         os.makedirs(cache_path)
         # Add dictionary to file
-        with open(cache_path + "/cache.txt", 'w') as f:
-            json.dump(dict(templates), f)
-            f.close()
+        with open(cache_path + "/cache.pkl", 'wb') as f:
+            pickle.dump(templates, f)
             print("\nCached templates successfully.")
 
     return templates
@@ -70,9 +69,8 @@ def get_templates(training_path, cache_path, use_cache):
 
 def read_cache_templates(cache_path):
     # Read file
-    with open(os.path.join(cache_path, "cache.txt"), 'r') as f:
-        data = json.load(f)
-
+    with open(os.path.join(cache_path, "cache.pkl"), 'rb') as f:
+        data = pickle.load(f)
         print("Read cache successfully.")
         return data
 
@@ -121,8 +119,6 @@ def run_task_2(training_path, test_path, test_annotations_path, cache_path, use_
 
         templates_found[image] = []
         for name, template in templates.items():
-            # TODO: Come back to cache
-            # template = np.reshape(template, (32, 32, 3)).astype(np.uint8)
             _, w, h = template.shape[::-1]
             res = cv.matchTemplate(black_and_white_image, template, cv.TM_CCOEFF_NORMED)
 
@@ -143,9 +139,6 @@ def run_task_2(training_path, test_path, test_annotations_path, cache_path, use_
         print("\nChecked image: " + image)
         print(templates_found)
 
-    # for template_found in templates_found:
-    #     print(template_found)
-
     accuracy_ = accuracy(test_annotations_path, templates_found)
     print("")
     print(accuracy_)
@@ -158,7 +151,7 @@ if __name__ == "__main__":
     test_path = "./Task2Dataset/TestWithoutRotations/images"
     cache_path = training_path.replace("png", "cache")  # "./Task2Dataset/Training/cache"
     test_annotations_path = "./Task2Dataset/TestWithoutRotations/annotations"
-    use_cache = False
+    use_cache = True
 
     start = timeit.default_timer()
     run_task_2(training_path, test_path, test_annotations_path, cache_path, use_cache)
