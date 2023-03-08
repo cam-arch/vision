@@ -6,6 +6,7 @@ import timeit
 import cv2 as cv
 import natsort
 import numpy as np
+from sklearn.cluster import KMeans
 
 
 def image_pyramid(file, file_name, height, width):
@@ -37,13 +38,13 @@ def format_name(name):
 
 def get_templates(training_path, cache_path, use_cache):
     # Create folder for cached templates
-    if os.path.exists(cache_path) and use_cache:
+    if os.path.exists(cache_path + "/cache.pkl") and use_cache:
         print("Cache already exists. Using existing cache data.")
         return read_cache_templates(cache_path)
 
     # Create files for each template
-    scales = [32, 64, 128, 256]  # The different scales we want to use
-    rotations = [45, 90, 135, 180, 225, 270, 315]  # The rotations of the templates
+    scales = [64]  # The different scales we want to use
+    rotations = []  # The rotations of the templates
     templates = {}
     for image in natsort.natsorted(os.listdir(training_path), reverse=False):
         for scale in scales:
@@ -75,34 +76,103 @@ def read_cache_templates(cache_path):
         return data
 
 
-def accuracy(test_annotations_path, templates_found):
+# https://learnopencv.com/intersection-over-union-iou-in-object-detection-and-segmentation/#Implementing-IoU-using-NumPy
+def get_iou(ground_truth, pred):
+    # coordinates of the area of intersection.
+    ix1 = np.maximum(ground_truth[0], pred[0])
+    iy1 = np.maximum(ground_truth[1], pred[1])
+    ix2 = np.minimum(ground_truth[2], pred[2])
+    iy2 = np.minimum(ground_truth[3], pred[3])
+
+    # Intersection height and width.
+    i_height = np.maximum(iy2 - iy1 + 1, np.array(0.))
+    i_width = np.maximum(ix2 - ix1 + 1, np.array(0.))
+
+    area_of_intersection = i_height * i_width
+
+    # Ground Truth dimensions.
+    gt_height = ground_truth[3] - ground_truth[1] + 1
+    gt_width = ground_truth[2] - ground_truth[0] + 1
+
+    # Prediction dimensions.
+    pd_height = pred[3] - pred[1] + 1
+    pd_width = pred[2] - pred[0] + 1
+
+    area_of_union = gt_height * gt_width + pd_height * pd_width - area_of_intersection
+
+    iou = area_of_intersection / area_of_union
+
+    return iou
+
+
+# from https://datascienceparichay.com/article/distance-between-two-points-python/
+def get_distance(p, q):
+    # sum of squared difference between coordinates
+    s_sq_difference = 0
+    for p_i, q_i in zip(p, q):
+        s_sq_difference += (p_i - q_i) ** 2
+
+    # take sq root of sum of squared difference
+    distance = s_sq_difference ** 0.5
+    return distance
+
+
+def find_centre(template):
+    x_diff = abs(template[1][0] - template[2][0])
+    y_diff = abs(template[1][1] - template[2][1])
+
+    return np.array([template[1][0] + x_diff // 2, template[1][1] + y_diff // 2])
+
+
+def accuracy(test_annotations_path, icons_found):
     accuracy_ = {}
     annotation_pattern = r"^([a-zA-Z-]+), \((\d+), (\d+)\), \((\d+), (\d+)\)$"
-    for image, template_found in templates_found.items():
-        template_found = [(x[0].split('_')[0], x[1], x[2]) for x in template_found]
+    for image, templates_found in icons_found.items():
+        templates_found = [[x[0].split('_')[0], x[1], x[2]] for x in templates_found]
         image = image.replace(".png", ".txt")
 
         with open(os.path.join(test_annotations_path, image), "r") as f:
             lines = f.readlines()
-            correct_template = []
+            correct_templates = []
             for i, line in enumerate(lines):
                 match = re.match(annotation_pattern, line)
                 if match:
-                    result = (match.group(1), (int(match.group(2)), int(match.group(3))),
-                              (int(match.group(4)), int(match.group(5))))
-                    correct_template.append(result)
+                    result = [match.group(1), (int(match.group(2)), int(match.group(3))),
+                              (int(match.group(4)), int(match.group(5)))]
+                    correct_templates.append(result)
 
-        # TODO: Split out if correct template found, and how close
-        #  Euclidean distance of centre of boxes to determine
-        #  Cam's method of how accurate (how much the bboxes overlap)
-        correct, incorrect = 0, 0
-        for template in template_found:
-            if template in correct_template:
-                correct += 1
+        templates_found_centres = np.empty((0, 2))
+        for template_found in templates_found:
+            templates_found_centres = np.append(templates_found_centres, [find_centre(template_found)], axis=0)
+
+        correct_templates_centres = np.empty((0, 2))
+        for correct_template in correct_templates:
+            correct_templates_centres = np.append(correct_templates_centres, [find_centre(correct_template)], axis=0)
+
+        kmeans = KMeans(n_clusters=len(correct_templates_centres), init=correct_templates_centres, max_iter=1)
+
+        kmeans.fit(templates_found_centres)
+
+        # At index i of labels, is index of our found templates. The value says which index of correct.
+        labels = kmeans.predict(templates_found_centres)
+
+        true_positive, false_positive = 0, 0
+        # TODO: Change this - Need to get all the bboxes for each label and find the closest
+        #  Our assumption is that this is our prediction is the closest
+        for label, i in enumerate(labels):
+            template_found = templates_found[i]
+            correct_template = correct_templates[label]
+
+            if template_found[0] == correct_template[0]:
+                true_positive += 1
+                iou = get_iou(
+                    [template_found[1][0], template_found[1][1], template_found[2][0], template_found[2][1]],
+                    [correct_template[1][0], correct_template[1][1], correct_template[2][0], correct_template[2][1]]
+                )
             else:
-                incorrect += 1
+                false_positive += 1
 
-        accuracy_[image] = (correct, incorrect)
+        false_negative = len(correct_templates) - true_positive - false_positive
 
     return accuracy_
 
@@ -113,7 +183,11 @@ def run_task_2(training_path, test_path, test_annotations_path, cache_path, use_
 
     # Find templates in images
     templates_found = {}
+    count = 0
     for image in natsort.natsorted(os.listdir(test_path), reverse=False):
+        if count == 1:
+            break
+
         img_rgb = cv.imread(test_path + "/" + image)
         (threshold, black_and_white_image) = cv.threshold(img_rgb, 127, 255, cv.THRESH_BINARY)
 
@@ -130,7 +204,7 @@ def run_task_2(training_path, test_path, test_annotations_path, cache_path, use_
                 x_min = round(np.average(loc[1]))
                 y_max = y_min + w
                 x_max = x_min + h
-                templates_found[image].append((name, (x_min, y_min), (x_max, y_max)))
+                templates_found[image].append([name, (x_min, y_min), (x_max, y_max)])
             for pt in zip(*loc[::-1]):
                 cv.rectangle(img_rgb, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
 
@@ -138,6 +212,8 @@ def run_task_2(training_path, test_path, test_annotations_path, cache_path, use_
         # cv.waitKey(0)
         print("\nChecked image: " + image)
         print(templates_found)
+
+        count += 1
 
     accuracy_ = accuracy(test_annotations_path, templates_found)
     print("")
